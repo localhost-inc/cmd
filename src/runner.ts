@@ -1,6 +1,6 @@
 import path from "node:path";
 import { pathToFileURL } from "node:url";
-import { ZodError, z } from "zod";
+import { ZodError } from "zod";
 import type { z as zType } from "zod";
 
 import type { CommandDefinition, CommandIo } from "./types.js";

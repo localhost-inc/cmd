@@ -119,6 +119,76 @@ export default defineCommand({
 });
 ```
 
+## Log
+
+Structured terminal logging with groups, spinners, and command execution. Import from `@localhost-inc/cmd/log`.
+
+```ts
+import { log } from "@localhost-inc/cmd/log";
+```
+
+### Basic Logging
+
+```ts
+log.info("deploying...");
+log.success("done");
+log.warn("cache miss");
+log.error("failed");
+log.dim("minor detail");
+log.step("Build");
+
+const name = log.val("api"); // returns cyan-formatted string
+log.info(`deploying ${log.val("api")}`);
+```
+
+### Groups
+
+Groups provide nested, structured output. In a TTY they show animated spinners and collapse on completion. In CI they render as plain indented text.
+
+```ts
+await log.group("Deploy", async () => {
+  log.info("building...");
+
+  await log.group("Docker", async () => {
+    log.info("pushing image");
+  });
+});
+// ✓ Deploy
+```
+
+Groups show `✓` on success and `✗` on error (rethrowing the original exception).
+
+### Command Execution
+
+`log.exec` runs a command and integrates its output into the current log context.
+
+```ts
+// Tail mode (default) — shows last output line, collapses when done
+await log.exec("docker build .", { args: ["-t", "app"] });
+
+// Stream mode — pipes all output lines through
+await log.exec("npm test", { output: "stream" });
+
+// Silent mode — no output
+await log.exec("terraform plan", { output: "silent" });
+
+// Don't throw on non-zero exit
+const { exitCode } = await log.exec("git diff --quiet", { nothrow: true });
+```
+
+In a TTY with tail mode, the last output line flickers under the active group spinner and disappears when the command finishes. In CI, a heartbeat message is logged periodically to prevent runner timeouts.
+
+#### Options
+
+| Option | Type | Default | Description |
+|---|---|---|---|
+| `args` | `string[]` | `[]` | Arguments to pass to the command |
+| `cwd` | `string` | `process.cwd()` | Working directory |
+| `env` | `Record<string, string>` | `process.env` | Environment variables |
+| `output` | `"tail" \| "stream" \| "silent"` | `"tail"` | Output handling mode |
+| `nothrow` | `boolean` | `false` | Don't throw on non-zero exit |
+| `heartbeatMs` | `number` | `15000` | Heartbeat interval for CI (0 to disable) |
+
 ## API
 
 ### `defineCommand(options)`
