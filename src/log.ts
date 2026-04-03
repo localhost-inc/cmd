@@ -13,6 +13,20 @@ const bold = (s: string) => `\x1b[1m${s}\x1b[0m`;
 
 const spinnerFrames = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
 
+// Visual row counting — accounts for ANSI codes and terminal wrapping
+
+const ANSI_RE = /\x1b\[[0-9;]*[A-Za-z]/g;
+
+export function stripAnsi(text: string): string {
+  return text.replace(ANSI_RE, "");
+}
+
+export function visualRows(text: string, columns: number): number {
+  const len = stripAnsi(text).length;
+  if (len === 0 || columns <= 0) return 1;
+  return Math.ceil(len / columns);
+}
+
 // Renderer — manages an in-place block of terminal lines (TTY only)
 
 type LineEntry = { text: string };
@@ -58,10 +72,13 @@ class Renderer {
     if (this.renderedCount > 0) {
       process.stdout.write(`\x1b[${this.renderedCount}F\x1b[0J`);
     }
+    const columns = process.stdout.columns || 80;
+    let rows = 0;
     for (const line of this.lines) {
       process.stdout.write(`${line.text}\n`);
+      rows += visualRows(line.text, columns);
     }
-    this.renderedCount = this.lines.length;
+    this.renderedCount = rows;
   }
 }
 
