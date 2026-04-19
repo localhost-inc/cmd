@@ -40,10 +40,16 @@ async function discoverCommands(
 
       const fullPath = path.join(baseDir, normalized);
       const url = pathToFileURL(fullPath).toString();
-      const module = await import(url);
-      if (!module.default || module.default.kind !== "command") continue;
+      let module: Record<string, unknown>;
+      try {
+        module = await import(url);
+      } catch {
+        continue;
+      }
+      const candidate = (module as { default?: unknown }).default;
+      if (!candidate || (candidate as { kind?: unknown }).kind !== "command") continue;
 
-      commands.set(name, { command: module.default as AnyCommand, filePath: normalized });
+      commands.set(name, { command: candidate as AnyCommand, filePath: normalized });
     }
   }
 

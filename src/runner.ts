@@ -80,14 +80,20 @@ function splitArgs(args: string[]) {
   return { segments, flagArgs };
 }
 
-async function importCommand(baseDir: string, relativePath: string): Promise<AnyCommand> {
+async function importCommand(baseDir: string, relativePath: string): Promise<AnyCommand | null> {
   const fullPath = path.join(baseDir, relativePath);
   const url = pathToFileURL(fullPath).toString();
-  const module = await import(url);
-  if (!module.default) {
-    throw new Error(`Command module "${relativePath}" has no default export.`);
+  let module: Record<string, unknown>;
+  try {
+    module = await import(url);
+  } catch {
+    return null;
   }
-  return module.default as AnyCommand;
+  const candidate = (module as { default?: unknown }).default;
+  if (!candidate || (candidate as { kind?: unknown }).kind !== "command") {
+    return null;
+  }
+  return candidate as AnyCommand;
 }
 
 function isPrivateModuleName(name: string): boolean {
@@ -191,6 +197,7 @@ async function listChildEntries(
 
     const relativePath = `${prefix}${head}`;
     const command = await importCommand(baseDir, relativePath);
+    if (!command) continue;
     childEntriesByName.set(
       childName,
       command.description
@@ -216,6 +223,7 @@ async function resolveCommand(
       return null;
     }
     const command = await importCommand(baseDir, defaultCommandPath);
+    if (!command) return null;
     return { command, depth: 0, path: "" };
   }
 
@@ -225,6 +233,7 @@ async function resolveCommand(
   }
 
   const command = await importCommand(baseDir, commandMatch.relativePath);
+  if (!command) return null;
   return {
     command,
     depth: commandMatch.depth,
@@ -270,7 +279,7 @@ export async function runCli(options: RunCliOptions) {
 
   const isDefaultCommand = commandMatch !== null && commandMatch.depth === 0 && options.defaultCommandPath;
   const shouldRenderNamespace =
-    namespaceDepth >= 0 && (!commandMatch || namespaceDepth >= commandMatch.depth) && !isDefaultCommand;
+    namespaceDepth >= 0 && (!commandMatch || namespaceDepth > commandMatch.depth) && !isDefaultCommand;
 
   if (shouldRenderNamespace) {
     const namespacePath = namespaceDepth === 0 ? null : segments.slice(0, namespaceDepth).join(" ");
