@@ -56,8 +56,11 @@ async function discoverCommands(
   return commands;
 }
 
-function commandPathToToolName(prefix: string, commandPath: string): string {
-  return `${prefix}.${commandPath.replace(/\//g, ".")}`;
+function commandPathToToolName(commandPath: string): string {
+  // MCP clients already namespace tools by the server's `name`, so prefixing
+  // the tool with the same name produces redundant identifiers (e.g.
+  // `mcp__casper__casper.status`). Just use the command path.
+  return commandPath.replace(/\//g, ".");
 }
 
 function extractInputSchema(command: AnyCommand): Record<string, z.ZodTypeAny> | null {
@@ -94,7 +97,7 @@ export async function runMcp(options: RunMcpOptions): Promise<void> {
   for (const [commandPath, { command }] of commands) {
     if (exclude.has(commandPath)) continue;
 
-    const toolName = commandPathToToolName(options.name, commandPath);
+    const toolName = commandPathToToolName(commandPath);
     const description = command.description ?? toolName;
     const inputSchema = extractInputSchema(command);
     if (inputSchema === null) continue;
